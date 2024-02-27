@@ -1,0 +1,12 @@
+#!/bin/bash
+for n in 0.5
+do
+    beta=$n
+    echo $beta
+    for i in 1 2 3 
+    do
+       save_path="autodl-tmp/fedipr/0403dir0.5-$i"
+       python pflipr-master/fedipr/main_fedIPR.py  --save_path "$save_path" --lr 0.01 --iid "noniid-labeldir" --dataset "cifar10" --num_classes 10 --epochs 50 --beta $beta --malicious_frac 0.4 --tampered_frac 0.3
+    done
+done
+

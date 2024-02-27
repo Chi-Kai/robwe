@@ -1,0 +1,2 @@
+#!/bin/bash
+python -u main.py -lbs 10 -nc 100 -jr 0.1 -nb 10 -lr 0.01 -pls 9 -ls 10 -wbs 50 -sfn "/root/autodl-tmp/robwe/cifar10-nc100-dir0.3" -data Cifar10 -datadir Cifar10/dir0.3 -m watercnn -algo FedRep -gr 50 -did 0 -go watercnn 
