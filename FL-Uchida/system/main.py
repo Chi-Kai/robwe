@@ -145,9 +145,9 @@ def run(args):
 
         # select algorithm
         if args.algorithm == "FedAvg":
-            args.head = copy.deepcopy(args.model.fc)
-            args.model.fc = nn.Identity()
-            args.model = BaseHeadSplit(args.model, args.head)
+            # args.head = copy.deepcopy(args.model.fc)
+            # args.model.fc = nn.Identity()
+            # args.model = BaseHeadSplit(args.model, args.head)
             server = FedAvg(args, i)
         elif args.algorithm == "FedRep":
             args.head = copy.deepcopy(args.model.fc)
@@ -227,6 +227,7 @@ if __name__ == "__main__":
                         help="The rate for malignant clients")
     parser.add_argument('-bt',"--beta",type=float,default=0.5,help="beta for distribution")
     parser.add_argument('--partition', type=str, default='noniid-#label4', help='the data partitioning strategy')
+    parser.add_argument('--layer_type', type=str, default='Conv2d', help='the data partitioning strategy')
     # practical
     parser.add_argument('-cdr', "--client_drop_rate", type=float, default=0.0,
                         help="Rate for clients that train but drop out")

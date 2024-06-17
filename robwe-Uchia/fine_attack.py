@@ -12,7 +12,7 @@ from utils.train_utils import get_model,getdata
 from utils.trainer_private import TesterPrivate
 import torch.nn.functional as F
 import random
-
+from utils.watermark import test_watermark
 def init_seed(seed):
     random.seed(seed)
     np.random.seed(seed=seed)
@@ -120,7 +120,17 @@ def main(args,seed,model_path):
     acc_1 = acc_1 / 100
     acc_22 = acc_22 / 100
     tester = TesterPrivate(model,args.device)
-    success_rate = tester.test_signature(keys[22],0)
+    #success_rate = tester.test_signature(keys[22],0)    
+    if args.use_watermark:              
+        success_rate = test_watermark(
+                        model,
+                        keys[22]["x"],
+                        keys[22]["b"],
+                        0,
+                        0,
+                        args.device,
+                        "head"
+                    )
     print('Init test: acc_1:{},acc_22:{},success_rate:{}'.format(acc_1,acc_22,success_rate))
 
     train_ldr_1 = DataLoader(DatasetSplit(dataset_train,dict_users_train[1]), batch_size = args.bs,
@@ -143,9 +153,30 @@ def main(args,seed,model_path):
         accs_1.append(acc_1)
         accs_22.append(acc_22)
 
-        tester = TesterPrivate(model,args.device)
-        success_rate = tester.test_signature(keys[22],0)
-        print('Round {:3d}, loss {:.3f}, acc_1 {:.2f}, acc_22 {:.2f}, success_rate {:.2f}'.format(iter, loss, acc_1, acc_22, success_rate))
+        #tester = TesterPrivate(model,args.device)
+        #success_rate = tester.test_signature(keys[22],0)
+
+        if args.use_watermark:
+            success_rate=0
+            success_rate = test_watermark(
+                    model,
+                    keys[22]["x"],
+                    keys[22]["b"],
+                    0,
+                    0,
+                    args.device,
+                    "head"
+                )
+            success_rate2 = test_watermark(
+            model,
+            keys[1]["x"],
+            keys[1]["b"],
+            0,
+            0,
+            args.device,
+            "head"
+        )
+        print('Round {:3d}, loss {:.3f}, acc_1 {:.2f}, acc_22 {:.2f}, success_rate {:.2f},success_rate2 {:.2f}'.format(iter, loss, acc_1, acc_22, success_rate,success_rate2))
         water_acc.append(success_rate)
     save_path = args.save_path + '/fine_tune/'+str(args.frac)+'/'+str(args.epochs)
     if not os.path.exists(save_path):
@@ -157,20 +188,9 @@ def main(args,seed,model_path):
 if __name__ == '__main__':
 
     args = args_parser()
-    frac = [0.1]
-    embed_dims = [50,80,100] #8320
-    args.use_watermark = True
-    args.epochs = 10
     args.fine_epochs = 25
-    for f in frac: 
-        for embed_dim in embed_dims:
-            args.use_watermark = True
-            args.frac = f
-            if embed_dim == 0:
-                args.use_watermark = False
-            args.embed_dim = embed_dim
-            model_path = args.save_path + '/models/' + str(args.frac)+'/'+ str(args.embed_dim)+'/'+str(args.epochs) +'/accs_fedrep_cifar10_100_iterTrue'+str(args.epochs)+'.pt'
-            main(args=args,seed=args.seed,model_path=model_path)
+    model_path = args.save_path + '/models/' + str(args.frac)+'/'+ str(args.embed_dim)+'/'+str(args.epochs) +'/accs_fedrep_cifar10_100_iterTrue'+str(args.epochs)+'.pt'
+    main(args=args,seed=args.seed,model_path=model_path)
 
 
     #plot_accs(args,embed_dims,frac,args.epochs)

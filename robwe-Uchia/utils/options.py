@@ -67,6 +67,6 @@ def args_parser():
     parser.add_argument('--tampered_frac', type=float, default=0.1,
                         help="proportion of watermarks tampered by malicious nodes")
     parser.add_argument('--scale', type=float, default=0.1, help="regularized loss前面的系数有多大")
-
+    parser.add_argument('--layer_type', type=str, required=False, default="bn", help="嵌入水印的位置")
     args = parser.parse_args()
     return args

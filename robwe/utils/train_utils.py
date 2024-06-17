@@ -1,6 +1,7 @@
 
-from models.Nets import CNNCifar, CNNCifar100, RNNSent, MLP, CNN_FEMNIST,CNNMnist
+from models.Nets import CNNCifar, CNNCifar100, RNNSent, MLP, CNN_FEMNIST,CNNMnist,VGG16
 from models.alexnet import AlexNet
+from models.resnet import ResNet18
 from utils.sampling import noniid
 import os
 import json
@@ -133,6 +134,10 @@ def get_model(args):
         net_glob = CNNMnist(args=args).to(args.device)
     elif args.model == 'alexnet' and 'cifar10' in args.dataset:
         net_glob = AlexNet(3,10,args.passport_config).to(args.device)
+    elif args.model == 'alexnet' and 'cifar100' in args.dataset:
+        net_glob = AlexNet(3,100,args.passport_config).to(args.device)
+    elif args.model == 'vgg' and 'cifar100' in args.dataset:
+        net_glob = VGG16().to(args.device)
     elif args.model == 'cnn' and 'cifar10' in args.dataset:
         net_glob = CNNCifar(args=args).to(args.device)
     elif args.model == 'cnn' and 'femnist' in args.dataset:

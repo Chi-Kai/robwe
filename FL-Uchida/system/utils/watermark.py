@@ -9,13 +9,20 @@ import torch.nn.functional as F
 
 # 生成水印
 def get_X(net_glob, embed_dim, use_watermark=False, layer_type="Linear"):
-    p = net_glob.head if layer_type == "Linear" else net_glob.base.children()  # 使用layer_type选择不同层
+    if layer_type == "Linear" :
+        p = net_glob.head 
+    elif layer_type == "Conv2d": 
+        p =net_glob.base.children()  # 使用layer_type选择不同层
+    elif layer_type == "fc":
+        p = net_glob.rep_params()
     X_rows = 0
     for i in p:
         if layer_type == "Linear" and isinstance(i, nn.Linear):
             X_rows += i.weight.numel()
         elif layer_type == "Conv2d" and isinstance(i, nn.Conv2d):
             X_rows += i.weight.numel()
+        elif layer_type == "fc":
+            X_rows += i.numel()
     X_cols = embed_dim
     if not use_watermark:
         X = None
@@ -46,6 +53,8 @@ def get_layer_weights_and_predict(model,x,device,layer_type="Linear"):
         weights = get_fc_weights(model)
     elif layer_type == "Conv2d":
         weights = get_conv_weights(model)
+    elif layer_type == "fc":
+        weights = get_rep_weights(model)
     pred_bparam = torch.matmul(weights, x.to(device))  # dot product np.dot是矩阵乘法运算
     pred_bparam = torch.sign(pred_bparam.to(device))
     return pred_bparam
@@ -174,6 +183,8 @@ class Signloss():
                 weights = get_fc_weights(self.model)
            elif layer_type == "Conv2d":
                 weights = get_conv_weights(self.model)
+           elif layer_type == "fc":
+                weights = get_rep_weights(self.model)
            loss = self.alpha * torch.sum(
                              F.binary_cross_entropy(
                                  input=torch.sigmoid(torch.matmul(weights,self.x.to(self.device))),
@@ -236,7 +247,13 @@ def get_conv_weights(model):
     # 将权重参数拼接为一个一维向量
     concatenated_weights = torch.cat(weights)
     return concatenated_weights
-
+def get_rep_weights(model):
+    weights = []
+    for rep_layer in model.rep_params():
+        weight = rep_layer.view(-1)
+        weights.append(weight)
+    concatenated_weights = torch.cat(weights)
+    return concatenated_weights
 # 文件保存    
 def tocsv(file, data):
     # 如果目录不存在

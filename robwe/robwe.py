@@ -72,7 +72,7 @@ def get_dict(args, model):
             l.append(0)
     np.random.shuffle(l)
     p_w, key1, x_l, water_l = get_keys(
-        net=model, n_parties=args.num_users, m=args.front_size
+        net=model, n_parties=args.num_users, m=args.rep_bit
     )
     key2 = copy.deepcopy(key1)
     malice_client = []
@@ -125,6 +125,11 @@ def check_confidence_interval(
         return b >= lower_nor
 
 
+# confidence_level_nor，变大，本来是恶意的但是判断为正确
+# confidence_level_bad，变大，本来是正确但是判断为恶意的
+# bad_nums，
+
+
 def main(args, seed):
     init_seed(seed=seed)
     args.device = torch.device(
@@ -149,14 +154,15 @@ def main(args, seed):
     torch.save(dict_users_test, save_path + "_dataset_test.pt")
 
     args.weight_type = "gamma"
-    root = "pflipr-master/robwe/"
+    root = "robwe/robwe/"
     if args.model == "resnet":
         args.passport_config = json.load(open(root + "configs/resnet18_passport.json"))
     if args.model == "alexnet":
         args.passport_config = json.load(open(root + "configs/alexnet_passport.json"))
     if args.model == "cnn":
         args.passport_config = json.load(open(root + "configs/cnn_passport.json"))
-
+    if args.model == "vgg":
+        args.passport_config = json.load(open(root + "configs/vgg16_passport.json"))
     model_glob = get_model(args).to(args.device)
     model_glob.train()
 
@@ -177,7 +183,7 @@ def main(args, seed):
     keys = []
     keys_server, keys_rep, public_w, water_l, x_l, server_malice_clients = get_dict(
         args, model_glob
-    )
+    )  # 公共层水印
     print(
         "watermark length:{},public_water: {},Matrix length: {}".format(
             water_l, public_w, x_l
@@ -186,7 +192,7 @@ def main(args, seed):
 
     for i in range(args.num_users):
         key = construct_passport_kwargs(args)
-        keys.append(key)
+        keys.append(key)  # 私有层水印
 
     save_path = (
         args.save_path
@@ -207,12 +213,14 @@ def main(args, seed):
     torch.save(keys_rep, save_path + "/keys_rep.pt")
 
     # specify the representation parameters (in w_glob_keys) and head parameters (all others)
-    layer_base = []
+    layer_base = []  # 表示层
     if args.alg == "fedrep" or args.alg == "fedper":
         if args.model == "cnn":
             layer_base = [model_glob.weight_keys[i] for i in [0, 1, 2]]
         elif args.model == "alexnet":
             layer_base = [model_glob.weight_keys[i] for i in [0, 1, 5]]
+        elif args.model == "vgg":
+            layer_base = [model_glob.weight_keys[i] for i in [0, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]]
     if args.alg == "fedavg":
         layer_base = []
     layer_base = list(itertools.chain.from_iterable(layer_base))
@@ -273,6 +281,7 @@ def main(args, seed):
 
         server_memory = {}
         malice_client = []
+
         client_accs_for_iter = {}
         if iter == 0:
             client_water_accs = [0] * args.num_users
@@ -336,7 +345,7 @@ def main(args, seed):
             )
             if args.use_watermark:
                 tester = TesterPrivate(model_client, args.device)
-                success_rate = tester.test_signature(keys[idx], 0)
+                success_rate = tester.test_signature(keys[idx], 0)  # 检测私有层的
                 # success_rate = client.validate(net=model_client.to(args.device),device=args.device)
                 success_rates.append(success_rate)
                 # print(success_rate)
@@ -344,14 +353,14 @@ def main(args, seed):
             loss_locals.append(copy.deepcopy(loss))
             total_len += lens[idx]
             server_memory[idx] = copy.deepcopy(state_client)
-            save_head(args=args, idx=idx, model=net)
+            # save_head(args=args, idx=idx, model=net)
 
         print("epoch {} start test".format(iter))
         # print('server memory length: {},keys: {}'.format(len(server_memory),server_memory.keys()))
         for ind, i in enumerate(idxs_users):
             client_model = copy.deepcopy(model_glob)
             client_model.load_state_dict(server_memory[i])
-            client_acc = test_watermark(
+            client_acc = test_watermark(  # 公共层的
                 client_model,
                 keys_server[i]["x"],
                 keys_server[i]["b"],
@@ -370,81 +379,90 @@ def main(args, seed):
             client_waters[i] = client_acc
             client_accs_for_iter[i] = client_acc
         for ind, i in enumerate(idxs_users):
-            # other_client_accs = []
-            # other_client_test_accs = []
-            other_client_accs_in_i = []
-            malice_client_accs = []
-            same_epochs_clients = [
-                ind
-                for ind, j in enumerate(client_sample_times)
-                if j == client_sample_times[i]
-                and ind not in malice_client_detect
-                and ind not in false_detect
-            ]
-            print("---------------------------------")
-            print(
-                "client {} start test,xor_frac: {}, server_acc: {}".format(
-                    i,
-                    (keys_server[i]["b"] != keys_rep[i]["b"]).sum().item(),
-                    client_accs_for_iter[i],
-                )
-            )
-            print(
-                "choose_nums: {} same_epochs_clients:{}".format(
-                    client_sample_times[i], same_epochs_clients
-                )
-            )
-            for ind, j in enumerate(same_epochs_clients):
-                if i != j:
-                    # other_client_acc = test_watermark(other_client_model,keys_server[i]['x'],keys_server[i]['b'],x_l,keys_server[i]['id'],args.device)
-                    # other_client_test_acc = test_watermark(other_client_model,keys_server[j]['x'],keys_server[j]['b'],x_l,keys_server[j]['id'],args.device)
-                    # other_client_acc_in_i = test_watermark(client_model,keys_server[j]['x'],keys_server[j]['b'],x_l,keys_server[j]['id'],args.device)
-                    # other_client_accs.append(other_client_acc)
-                    # other_client_test_accs.append(other_client_test_acc)
-                    # if j in server_malice_clients:
-                    #      malice_client_accs.append(client_waters[j])
-                    # else:
-                    other_client_accs_in_i.append(client_waters[j])
-            # print('other_client_accs_in {} area:{}'.format(i,other_client_accs))
-            print("other_area_accs_in_{}_client:{}".format(i, other_client_accs_in_i))
-            # print('malice_client_accs:{}'.format(malice_client_accs))
-            if (
-                len(other_client_accs_in_i) == 0
-                or len(other_client_accs_in_i) < len(idxs_users) - 1
-            ):
+            # print("detection : {}".format(args.detection))
+            if args.detection:
+                # other_client_accs = []
+                # other_client_test_accs = []
+                other_client_accs_in_i = []
+                malice_client_accs = []
+                same_epochs_clients = [
+                    ind
+                    for ind, j in enumerate(client_sample_times)
+                    if j == client_sample_times[i]
+                    and ind not in malice_client_detect
+                    and ind not in false_detect
+                ]
+                print("---------------------------------")
                 print(
-                    "client {} is advence,epochs is {}".format(
-                        i, client_sample_times[i]
+                    "client {} start test,xor_frac: {}, server_acc: {}".format(
+                        i,
+                        (keys_server[i]["b"] != keys_rep[i]["b"]).sum().item(),
+                        client_accs_for_iter[i],
                     )
                 )
-                continue
+                print(
+                    "choose_nums: {} same_epochs_clients:{}".format(
+                        client_sample_times[i], same_epochs_clients
+                    )
+                )
+                for ind, j in enumerate(same_epochs_clients):
+                    if i != j:
+                        # other_client_acc = test_watermark(other_client_model,keys_server[i]['x'],keys_server[i]['b'],x_l,keys_server[i]['id'],args.device)
+                        # other_client_test_acc = test_watermark(other_client_model,keys_server[j]['x'],keys_server[j]['b'],x_l,keys_server[j]['id'],args.device)
+                        # other_client_acc_in_i = test_watermark(client_model,keys_server[j]['x'],keys_server[j]['b'],x_l,keys_server[j]['id'],args.device)
+                        # other_client_accs.append(other_client_acc)
+                        # other_client_test_accs.append(other_client_test_acc)
+                        # if j in server_malice_clients:
+                        #      malice_client_accs.append(client_waters[j])
+                        # else:
+                        other_client_accs_in_i.append(client_waters[j])
+                # print('other_client_accs_in {} area:{}'.format(i,other_client_accs))
+                print("other_area_accs_in_{}_client:{}".format(i, other_client_accs_in_i))
+                # print('malice_client_accs:{}'.format(malice_client_accs))
+                if (
+                    len(other_client_accs_in_i) == 0
+                    or len(other_client_accs_in_i) < len(idxs_users) - 1
+                ):
+                    print(
+                        "client {} is advence,epochs is {}".format(
+                            i, client_sample_times[i]
+                        )
+                    )
+                    continue
             # avg_accs = sum(other_client_accs_in_i)/len(other_client_accs_in_i)
             # print('avg_accs:{}'.format(avg_accs))
             # dis = calculate_normal_distribution(other_client_accs_in_i)
-
-            # is_in_interval = check_confidence_interval(other_client_accs_in_i,all_detect_malice_clients_rates,client_accs_for_iter[i], 0.997,0.5,7)
-
-            is_in_interval = True
+            if args.detection:
+                is_in_interval = check_confidence_interval(
+                    other_client_accs_in_i,
+                    all_detect_malice_clients_rates,
+                    client_accs_for_iter[i],
+                    args.confidence_level_nor,
+                    args.confidence_level_bad,
+                    args.bad_nums,
+                )
+            else:
+                is_in_interval = True
             if is_in_interval:
                 client_water_accs[i] = client_accs_for_iter[i]
                 continue
-            else:
+            elif args.detection:
                 print(
                     "client {} is malicious,water acc: {} is_in_interval: {} ".format(
                         i, client_accs_for_iter[i], is_in_interval
                     )
                 )
-                malice_client.append(keys_rep[i]["id"])
+                malice_client.append(keys_rep[i]["id"])  # 认为是恶意客户端的
                 if (
                     keys_rep[i]["id"] not in malice_client_detect
                     and keys_rep[i]["id"] in server_malice_clients
                 ):
-                    malice_client_detect.append(keys_rep[i]["id"])
+                    malice_client_detect.append(keys_rep[i]["id"])  # 正确的检测
                 if (
                     keys_rep[i]["id"] not in false_detect
                     and keys_rep[i]["id"] not in server_malice_clients
                 ):
-                    false_detect.append(keys_rep[i]["id"])
+                    false_detect.append(keys_rep[i]["id"])  # 不是恶意的但认为成恶意的了
                 # keys_rep[i] = copy.deepcopy(keys_server[i])
                 all_detect_malice_clients.append(keys_rep[i]["id"])
                 all_detect_malice_clients_rates.append(client_accs_for_iter[i])
@@ -460,12 +478,14 @@ def main(args, seed):
                     client_water_accs[i] = copy.deepcopy(
                         all_epochs_client_water_accs[-1][i]
                     )
-        if len(malice_client) == 0:
+        if len(malice_client) == 0:  # 认为是恶意客户端
             malice_client_detect_rate = 0
-        else:
+        elif len(server_malice_clients) != 0:
             malice_client_detect_rate = len(malice_client_detect) / len(
                 server_malice_clients
             )
+        else:
+            malice_client_detect_rate = 0
         false_detect_rate = len(false_detect) / args.num_users
 
         print("malice_client:{}".format(malice_client))
@@ -662,7 +682,7 @@ def main(args, seed):
         all_one_for_all_clients_rates = np.transpose(all_one_for_all_clients_rates)
         df = pd.DataFrame(all_one_for_all_clients_rates)
         df.to_excel(all_detect_all_dir)
-
+    if args.use_rep_watermark:
         server_file = (
             path
             + "/server_acc_"
@@ -687,8 +707,8 @@ def main(args, seed):
         # 将server_accs,rep_accs,malice_client_detect_rates,false_detect_rates保存到csv文件中
         df = pd.DataFrame(
             {
-                "server_accs": server_accs,
-                "rep_accs": rep_accs,
+                "server_accs": server_accs,  # 服务器检测水印检测率
+                "rep_accs": rep_accs,  #
                 "malice_client_detect_rates": malice_client_detect_rates,
                 "false_detect_rates": false_detect_rates,
             }
@@ -776,13 +796,7 @@ def save_head(args, idx, model):
 
 if __name__ == "__main__":
     args = args_parser()
-    frac = [0.1]
-    embed_dims = [50]  # 8320
+    args.detection = False   #检测恶意客户端
     args.use_watermark = True
-    for f in frac:
-        for embed_dim in embed_dims:
-            args.use_watermark = True
-            if embed_dim == 0:
-                args.use_watermark = False
-            args.embed_dim = embed_dim
-            main(args=args, seed=args.seed)
+    args.use_rep_watermark = False
+    main(args=args, seed=9527)

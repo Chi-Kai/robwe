@@ -25,7 +25,7 @@ class Experiment(object):
         self.save_history_interval = 1
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         args.device = self.device
-        root = "pflipr-master/fedipr/"
+        root = "robwe/fedipr/"
         self.num_users = args.num_users
         self.num_back = args.num_back
         self.num_sign = args.num_sign
@@ -57,7 +57,8 @@ class Experiment(object):
             self.passport_config = json.load(open(root + 'configs/alexnet_passport.json'))
         if args.model_name == 'cnn':
             self.passport_config = json.load(open(root + 'configs/cnn_passport.json'))
-
+        if args.model_name == "vgg":
+            self.passport_config = json.load(open(root + "configs/vgg16_passport.json"))
         self.sl_ratio = args.loss_alpha
         self.logdir = f'logs/{self.model_name}_{self.dataset}'
 

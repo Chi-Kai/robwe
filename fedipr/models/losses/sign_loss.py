@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.Nets import CNNCifar,CNNCifar100,CNNMnist
+from models.Nets import CNNCifar,CNNCifar100,CNNMnist,VGG16
 from models.alexnet import AlexNet
 import sys
 
@@ -16,7 +16,7 @@ class SignLoss():
 
     def get_loss(self):
         self.reset()
-        if isinstance(self.model, (AlexNet,CNNCifar,CNNCifar100,CNNMnist)):
+        if isinstance(self.model, (AlexNet,CNNCifar,CNNCifar100,CNNMnist,VGG16)):
             for m in self.kwargs:
                 if self.kwargs[m]['flag'] == True:
                     b = self.kwargs[m]['b']

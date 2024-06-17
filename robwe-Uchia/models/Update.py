@@ -174,7 +174,7 @@ class LocalUpdate(object):
                 # rep 水印部分----------------------------------------------------------------------------------
                 '''
                 # 这个参数0是scheme，这里我们直接用0
-                sign_loss = Signloss(self.key, net, 0, self.args.device).get_loss(layer_type="head")
+                sign_loss = Signloss(self.key, net, 0, self.args.device).get_loss(layer_type=self.args.layer_type)
                 (loss + sign_loss).backward()
                 '''
                 if (iter < head_eps and self.args.alg == 'fedrep') or last:

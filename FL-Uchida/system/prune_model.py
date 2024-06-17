@@ -156,6 +156,8 @@ def run(args):
         print(f"\n============= Load Models =============")
         clients = []
         model_path = os.path.join(args.save_folder_name,"models/"+args.dataset)
+        keys_path = os.path.join(args.save_folder_name,"keys/"+args.dataset)
+        
         dataset_train,dataset_test,dict_train,dict_test = getdata(args)
         for i in range(args.num_clients-1):
             train_data = DatasetSplit(dataset_train,dict_train[i][:500])
@@ -167,9 +169,8 @@ def run(args):
                             train_slow = False,
                             send_slow = False
                             )
-            file_path = model_path +'/' + 'bits'+ str(args.watermark_bits)+ "_" + str(i) + ".pt"
-            model_state = torch.load(file_path)
-            client.model.load_state_dict(model_state)
+
+            client.key = torch.load(keys_path + '/' + 'bits'+ str(args.watermark_bits)+ "_" + str(i) + ".pt")
             clients.append(client)
         
         # 开始剪枝
@@ -181,6 +182,9 @@ def run(args):
             acc_model = []
             p = p * 100
             for c in clients:
+                file_path = model_path +'/' + 'bits'+ str(args.watermark_bits)+ "_" + str(i) + ".pt"
+                model_state = torch.load(file_path)
+                c.model.load_state_dict(model_state)
                 #prune_attack(c.model,arch,p)
                 #print(c.model)
                 # pruning_resnet(c.model,p)layers_to_prune = ['head.0.weight', 'head.0.bias', 'head.2.weight', 'head.2.bias', 'head.4.weight', 'head.4.bias']
@@ -273,4 +277,3 @@ if __name__ == "__main__":
         args.device = "cpu"
 
     run(args)
-

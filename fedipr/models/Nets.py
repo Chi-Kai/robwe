@@ -290,3 +290,108 @@ class RNNSent(nn.Module):
                     weight.new_zeros(self.nlayers, bsz, self.nhid))
         else:
             return weight.new_zeros(self.nlayers, bsz, self.nhid)
+
+class VGG16(nn.Module):
+    def __init__(self, num_classes=100):
+        super(VGG16, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            PassportPrivateBlock(128, 128, 3, 1),
+            # nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            # nn.BatchNorm2d(128),
+            # nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            PassportPrivateBlock(128, 256, 3, 1),
+            # nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            # nn.BatchNorm2d(256),
+            # nn.ReLU(inplace=True),
+            PassportPrivateBlock(256, 256, 3, 1),
+            # nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            # nn.BatchNorm2d(256),
+            # nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(512 * 1 * 1, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(4096, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(4096, num_classes),
+        )
+        self.weight_keys = [
+            ["features[0].weight", "features[0].bias"],
+            ["features[3].weight", "features[3].bias"],
+            ["features[7].weight", "features[7].bias"],
+            ["features[10].weight", "features[10].bias"],
+            ["features[12].weight", "features[12].bias"],
+            ["features[13].weight", "features[13].bias"],
+            ["features[20].weight", "features[20].bias"],
+            ["features[24].weight", "features[24].bias"],
+            ["features[27].weight", "features[27].bias"],
+            ["features[30].weight", "features[30].bias"],
+            ["features[34].weight", "features[34].bias"],
+            ["features[37].weight", "features[37].bias"],
+            ["features[40].weight", "features[40].bias"],
+            ["classifier[0].weight", "classifier[0].bias"],
+            ["classifier[3].weight", "classifier[3].bias"],
+            ["classifier[6].weight", "classifier[6].bias"],
+        ]
+        self.head_layers = [
+            self.features[10].weight,
+            self.features[12].weight,
+            self.features[13].weight,
+        ]
+
+    def forward(self, x):
+        x = self.features(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+    # 返回所有fc层权重,放到一个list里
+    def head_params(self):
+        return self.head_layers
+    def get_params(self):
+        return self.head_layers
+    # 所有表示层参数
+    def rep_params(self):
+        return [
+            self.classifier[0].weight,
+            self.classifier[3].weight,
+            self.classifier[6].weight,
+        ]
+

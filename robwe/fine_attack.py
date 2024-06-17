@@ -147,7 +147,7 @@ def main(args,seed,model_path):
         success_rate = tester.test_signature(keys[22],0)
         print('Round {:3d}, loss {:.3f}, acc_1 {:.2f}, acc_22 {:.2f}, success_rate {:.2f}'.format(iter, loss, acc_1, acc_22, success_rate))
         water_acc.append(success_rate)
-    save_path = args.save_path + '/fine_tune/'+str(args.frac)+'/'+str(args.epochs)
+    save_path = args.save_path + '/fine_tune2/'+str(args.frac)+'/'+str(args.epochs)
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     df = pd.DataFrame({'accs_1':accs_1,'accs_22':accs_22,'water_acc':water_acc})
@@ -158,9 +158,9 @@ if __name__ == '__main__':
 
     args = args_parser()
     frac = [0.1]
-    embed_dims = [50,80,100] #8320
+    embed_dims = [100] #8320
     args.use_watermark = True
-    args.epochs = 10
+    args.epochs = 50            #修改成50
     args.fine_epochs = 25
     for f in frac: 
         for embed_dim in embed_dims:

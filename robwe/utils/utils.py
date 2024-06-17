@@ -6,6 +6,7 @@ def construct_passport_kwargs(self):
     passport_settings = self.passport_config
     model = self.model
     bit_length = self.embed_dim
+    dataset = self.dataset
 
     passport_kwargs = {}
     
@@ -23,6 +24,17 @@ def construct_passport_kwargs(self):
     cnn_channels = {
         '0': (64, 1600),
         '2': (64, 1600),
+    }
+
+    cnn100_channels = {
+        '0': (64, 1600),
+        '2': (128, 3200),
+    }
+
+    vgg_channels = {
+        '10': (128, 1152),
+        '12': (256, 2304),
+        '13': (256, 2304),
     }
 
     for layer_key in passport_settings:
@@ -85,6 +97,18 @@ def construct_passport_kwargs(self):
                         output_channels = int (bit_length / 2)
                     if layer_key == "2":
                         output_channels = int (bit_length / 2)                        
+                if model == 'cnn' and dataset == 'cifar100':
+                    if layer_key == "0":
+                        output_channels = int (bit_length / 3)
+                    if layer_key == "2":
+                        output_channels = int (bit_length *2 / 3)
+                if model == "vgg": 
+                    if layer_key == "10":
+                        output_channels = int (bit_length / 5)
+                    if layer_key == "12":
+                        output_channels = int (bit_length * 2 / 5)                        
+                    if layer_key == "13":
+                        output_channels = int (bit_length * 2 / 5)
                 bsign = torch.sign(torch.rand(output_channels) - 0.5)
                 # bitstring = ''.join([format(ord(c), 'b').zfill(8) for c in b])
                               
@@ -99,11 +123,21 @@ def construct_passport_kwargs(self):
                         M = torch.randn(alexnet_channels[layer_key][0], output_channels)
                     else:
                         M = torch.randn(alexnet_channels[layer_key][1], output_channels)
-                if model == 'cnn':
+                elif model == 'cnn' and dataset == 'cifar10':
                     if self.weight_type == 'gamma': 
                         M = torch.randn(cnn_channels[layer_key][0], output_channels)
                     else:
                         M = torch.randn(cnn_channels[layer_key][1], output_channels) 
+                elif model == 'cnn' and dataset == 'cifar100':
+                    if self.weight_type == 'gamma': 
+                        M = torch.randn(cnn100_channels[layer_key][0], output_channels)
+                    else:
+                        M = torch.randn(cnn100_channels[layer_key][1], output_channels) 
+                elif model == 'vgg':
+                    if self.weight_type == 'gamma': 
+                        M = torch.randn(vgg_channels[layer_key][0], output_channels)
+                    else:
+                        M = torch.randn(vgg_channels[layer_key][1], output_channels)
 
                 passport_kwargs[layer_key]['b'] = b
                 passport_kwargs[layer_key]['M'] = M
@@ -252,25 +286,3 @@ def partition_data(dataset,train_label,test_label,partition, n_parties, beta=0.4
         test_dataidx_map = {i: test_batch_idxs[i] for i in range(n_parties)}
     
     return train_dataidx_map,test_dataidx_map
-
-class DatasetSplit(Dataset):
-    def __init__(self, dataset, idxs, name=None):
-        self.dataset = dataset
-        self.idxs = list(idxs)
-        self.name = name
-
-    def __len__(self):
-        return len(self.idxs)
-
-    def __getitem__(self, item):
-        if self.name is None:
-            image, label = self.dataset[self.idxs[item]]
-        elif 'femnist' in self.name:
-            image = torch.reshape(torch.tensor(self.dataset['x'][item]), (1, 28, 28))
-            label = torch.tensor(self.dataset['y'][item])
-        elif 'sent140' in self.name:
-            image = self.dataset['x'][item]
-            label = self.dataset['y'][item]
-        else:
-            image, label = self.dataset[self.idxs[item]]
-        return image, label

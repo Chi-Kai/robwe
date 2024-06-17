@@ -31,6 +31,12 @@ def construct_passport_kwargs(self):
         '2': (64, 1600),
     }
 
+    vgg_channels = {
+        '10': (128, 1152),
+        '12': (256, 2304),
+        '13': (256, 2304),
+    }
+
     for layer_key in passport_settings:
         if isinstance(passport_settings[layer_key], dict):
             passport_kwargs[layer_key] = {}
@@ -101,6 +107,13 @@ def construct_passport_kwargs(self):
                         output_channels = int (bit_length / 2)
                     if layer_key == "2":
                         output_channels = int (bit_length / 2)  
+                if model == "vgg": 
+                    if layer_key == "10":
+                        output_channels = int (bit_length / 5)
+                    if layer_key == "12":
+                        output_channels = int (bit_length * 2 / 5)                        
+                    if layer_key == "13":
+                        output_channels = int (bit_length * 2 / 5)
 
                 #output_channels = len(b) * 8
                 bsign = torch.sign(torch.rand(output_channels) - 0.5)
@@ -132,6 +145,11 @@ def construct_passport_kwargs(self):
                         M = torch.randn(mnist_channels[layer_key][0], output_channels)
                     else:
                         M = torch.randn(mnist_channels[layer_key][1], output_channels) 
+                if model == 'vgg':
+                    if self.weight_type == 'gamma': 
+                        M = torch.randn(vgg_channels[layer_key][0], output_channels)
+                    else:
+                        M = torch.randn(vgg_channels[layer_key][1], output_channels)
 
 
                 passport_kwargs[layer_key]['b'] = b

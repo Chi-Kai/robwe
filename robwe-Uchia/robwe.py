@@ -185,7 +185,7 @@ def main(args, seed):
     )
 
     for i in range(args.num_users):
-        key = get_key(model_glob, args.embed_dim, args.use_watermark,layer_type="head")
+        key = get_key(model_glob, args.embed_dim, args.use_watermark,layer_type=args.layer_type)
         keys.append(key)
 
     save_path = (
@@ -344,7 +344,7 @@ def main(args, seed):
                     0,
                     0,
                     args.device,
-                    "head"
+                    args.layer_type
                 )
                 # success_rate = client.validate(net=model_client.to(args.device),device=args.device)
                 success_rates.append(success_rate)
@@ -621,7 +621,7 @@ def main(args, seed):
                     0,
                     0,
                     args.device,
-                    "head"
+                    args.layer_type
                 )
                 one_for_all_clients_rates.append(sign_acc)
             all_one_for_all_clients_rates.append(one_for_all_clients_rates)

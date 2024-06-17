@@ -53,20 +53,30 @@ def args_parser():
     parser.add_argument('--load_fed', type=str, default='n', help='define pretrained federated model path')
     parser.add_argument('--results_save', type=str, default='runA', help='define fed results save folder')
     parser.add_argument('--save_every', type=int, default=50, help='how often to save models')
-    parser.add_argument('--datadir', type=str, required=False, default="./data/", help="Data directory")
+    parser.add_argument('--datadir', type=str, required=False, default="./data", help="Data directory")
     parser.add_argument('--save_path', type=str, required=False, default="./save", help="Data directory")
     parser.add_argument('--beta', type=float, default=0.5, help='The parameter for the dirichlet distribution for data partitioning')
 
     # build watermark
     parser.add_argument('--use_watermark', type=bool, default=True, help="决定是否要用水印")
-    parser.add_argument('--embed_dim', type=int, default=256, help='嵌入的水印有多长')
-    parser.add_argument('--rep_bit', type=int, default=100, help='rep bit')
-    parser.add_argument('--front_size', type=int, default=100, help='front m bit')
+    parser.add_argument('--use_rep_watermark', type=bool, default=True, help="决定是否要用表示层水印")
+    parser.add_argument('--embed_dim', type=int, default=256, help='嵌入的水印有多长')   #私有层水印长度
+    parser.add_argument('--rep_bit', type=int, default=100, help='rep bit')         #表示层（公共层），全部总的长度
+    # parser.add_argument('--front_size', type=int, default=100, help='front m bit')   #公共层，感觉无用
     parser.add_argument('--malicious_frac', type=float, default=0.1,
                         help="the fraction of malicious clients")
     parser.add_argument('--tampered_frac', type=float, default=0.1,
                         help="proportion of watermarks tampered by malicious nodes")
+    parser.add_argument('--detection', type=bool, default=True, help="决定检测恶意客户端")
     parser.add_argument('--scale', type=float, default=0.1, help="regularized loss前面的系数有多大")
+
+
+    
+    parser.add_argument('--confidence_level_nor', type=float, default=0.997,
+                        help="confidence_level_nor")
+    parser.add_argument('--confidence_level_bad', type=float, default=0.5,
+                        help="confidence_level_bad")
+    parser.add_argument('--bad_nums', type=int, default=7, help="bad_nums")
 
     args = parser.parse_args()
     return args

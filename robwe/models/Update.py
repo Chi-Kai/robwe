@@ -85,7 +85,7 @@ class LocalUpdate(object):
         self.b = None
         self.x_l = None
         self.x_i = None
-        if args.use_watermark:
+        if args.use_rep_watermark:
             self.X = rep_x.clone().detach().to(dtype=torch.float32, device=self.args.device)
             self.b = rep_b.clone().detach().to(dtype=torch.float32, device=self.args.device)
             self.b = self.b.view(1, -1)
@@ -154,7 +154,8 @@ class LocalUpdate(object):
 
                 # rep 水印部分----------------------------------------------------------------------------------
                 rep_loss = 0
-                if args.use_watermark:
+                sign_loss = 0
+                if args.use_rep_watermark:
                     # 得到参数 转化为一维向量
                     para = net.rep_params()
                     # y 是一个一维向量，用来存储参数
@@ -171,10 +172,14 @@ class LocalUpdate(object):
                     rep_loss = args.scale * torch.sum(
                         F.binary_cross_entropy(input=torch.sigmoid(torch.matmul(y, self.X.to(self.args.device))), target=self.b.to(self.args.device)))
                 # rep 水印部分----------------------------------------------------------------------------------
-
-                # 这个参数0是scheme，这里我们直接用0
-                signloss = SignLoss(self.key,net, 0)
-                sign_loss = signloss.get_loss()
+                if args.use_watermark:
+                    # 这个参数0是scheme，这里我们直接用0
+                    signloss = SignLoss(self.key,net, 0)
+                    sign_loss = signloss.get_loss()
+                # 确保它们启用了梯度计算
+                loss.requires_grad_(True)
+                sign_loss.requires_grad_(True)
+                # rep_loss.requires_grad_(True)
                 (loss + sign_loss + rep_loss).backward()
                 '''
                 if (iter < head_eps and self.args.alg == 'fedrep') or last:

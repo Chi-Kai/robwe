@@ -14,8 +14,9 @@ class clientAVG(Client):
     def __init__(self, args, id, train_samples, test_samples, **kwargs):
         super().__init__(args, id, train_samples, test_samples, **kwargs)
         self.is_watermark = args.use_watermark and args.watermark_bits > 0
+        self.layer_type = args.layer_type
         if self.is_watermark:
-            self.key = get_key(self.model,args.watermark_bits,args.use_watermark,layer_type="Conv2d")
+            self.key = get_key(self.model,args.watermark_bits,args.use_watermark,layer_type=args.layer_type)
 
     def train(self,dataset,idxs):
         trainloader = self.load_train_data(dataset,idxs)
@@ -47,7 +48,7 @@ class clientAVG(Client):
                 loss = self.loss(output, y)
                 #水印
                 if self.is_watermark:
-                    loss += Signloss(self.key,self.model,0,self.device).get_loss(layer_type="Conv2d")
+                    loss += Signloss(self.key,self.model,0,self.device).get_loss(layer_type=self.layer_type)
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()

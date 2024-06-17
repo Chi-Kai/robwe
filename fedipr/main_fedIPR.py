@@ -2,7 +2,7 @@ import csv
 import os
 
 import pandas as pd
-from models.Nets import CNNCifar,CNNCifar100,CNNMnist
+from models.Nets import CNNCifar,CNNCifar100,CNNMnist,VGG16
 from utils.train_utils import getdata
 from utils.args import parser_args
 # from utils.help import *
@@ -170,6 +170,8 @@ class IPRFederatedLearning(Experiment):
             model = CNNMnist(args)
         elif self.model_name == 'cnn' and self.dataset == 'fmnist':
             model = CNNMnist(args)
+        elif self.model_name == 'vgg':
+            model = VGG16(100)
         else:
             model = ResNet18( passport_kwargs = self.passport_kwargs)
         
@@ -251,6 +253,7 @@ class IPRFederatedLearning(Experiment):
                     else: 
                         acc_wm = 0
                     #恶意检测
+                if  self.args.malicious_frac > 0:
                     malicious_accs = []
                     normal_accs = []
                     for idx in range(self.num_users):
@@ -437,9 +440,9 @@ if __name__ == '__main__':
     #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     #os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     frac = [0.1]
-    bits = [50] 
+    bits = [0,50,100,150] 
     for j in bits:
-            #args.num_sign = 100
+            args.num_sign = 100
             args.num_bit = j
             print('args.num_bit: {} noniid: {}'.format(args.num_bit,args.iid))
             if j == 0:

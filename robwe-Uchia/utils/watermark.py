@@ -5,8 +5,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def get_X(net_glob, embed_dim, use_watermark=False,layer_type="rep"):
-    p = net_glob.rep_params() if layer_type=="rep" else net_glob.head_params()
+
+def get_X(net_glob, embed_dim, use_watermark=False, layer_type="rep"):
+    if layer_type == "rep":
+        p = net_glob.rep_params()
+    elif layer_type == "head":
+        p = net_glob.head_params()
+    elif layer_type == "bn":
+        p = net_glob.bn_params()
     X_rows = 0
     for i in p:
         X_rows += i.numel()
@@ -26,12 +32,12 @@ def get_b(embed_dim, use_watermark=False):
     return b
 
 
-def get_key(net_glob, embed_dim, use_watermark=False,layer_type="rep"):
+def get_key(net_glob, embed_dim, use_watermark=False, layer_type="rep"):
     key = {}
     if not use_watermark:
         key = None
         return key
-    key["x"] = get_X(net_glob, embed_dim, use_watermark,layer_type)
+    key["x"] = get_X(net_glob, embed_dim, use_watermark, layer_type)
     key["b"] = get_b(embed_dim, use_watermark)
     return key
 
@@ -56,7 +62,7 @@ def watermark_forgery(key, frac):
 
 
 #
-def get_layer_weights_and_predict(model, x, x_l, x_i, device,layer_type="rep"):
+def get_layer_weights_and_predict(model, x, x_l, x_i, device, layer_type="rep"):
     if isinstance(model, nn.Module):
         # p = model.head_params()
         # p = p.cpu().view(1, -1).detach().numpy()
@@ -69,8 +75,14 @@ def get_layer_weights_and_predict(model, x, x_l, x_i, device,layer_type="rep"):
             start = x_i * x_l
             end = start + x_l
             y = y[:, start:end]
-        else:
+        elif layer_type == "head":
             p = model.head_params()
+            y = torch.tensor([], dtype=torch.float32).to(device)
+            for i in p:
+                y = torch.cat((y, i.view(-1)), 0)
+            y = y.view(1, -1).to(device)
+        elif layer_type == "bn":
+            p = model.bn_params()
             y = torch.tensor([], dtype=torch.float32).to(device)
             for i in p:
                 y = torch.cat((y, i.view(-1)), 0)
@@ -94,8 +106,8 @@ def compute_BER(pred_b, b, device):
     return res.item()
 
 
-def test_watermark(model, x, b, x_l, x_i, device,layer_type="rep"):
-    pred_b = get_layer_weights_and_predict(model, x, x_l, x_i, device,layer_type)
+def test_watermark(model, x, b, x_l, x_i, device, layer_type="rep"):
+    pred_b = get_layer_weights_and_predict(model, x, x_l, x_i, device, layer_type)
     # print('pred_b',pred_b)
     # print('b',b)
     res = compute_BER(pred_b, b, device)
@@ -146,37 +158,45 @@ def watermark_attack(key, frac, f=0):
         key = watermark_forgery(key, frac)
     return key
 
-# 水印loss    
-class Signloss():
-    def __init__(self,key, model,scheme,device):
+
+# 水印loss
+class Signloss:
+    def __init__(self, key, model, scheme, device):
         super(Signloss, self).__init__()
-        self.alpha = 0.2  #self.sl_ratio
+        self.alpha = 0.2  # self.sl_ratio
         self.loss = 0
         self.model = model
         self.key = key
-        self.scheme = scheme # scheme 为 水印嵌入的方式
+        self.scheme = scheme  # scheme 为 水印嵌入的方式
         if key != None:
-            self.x = key['x']
-            self.b = key['b']
+            self.x = key["x"]
+            self.b = key["b"]
         self.device = device
-    def get_loss(self,layer_type="rep"):
+
+    def get_loss(self, layer_type="rep"):
         self.reset()
         if self.key == None:
             return 0
-        if self.scheme == 0: # 方式0 水印嵌入在head层几个fc参数拼接的矩阵中
-           
-           p = self.model.rep_params() if layer_type=="rep" else self.model.head_params()
-           weights = torch.tensor([], dtype=torch.float32).to(self.device)
-           for i in p:
-               weights = torch.cat((weights, i.view(-1)), 0)
-           #weights = weights.view(1, -1).to(self.device)
-           loss = self.alpha * torch.sum(
-                             F.binary_cross_entropy(
-                                 input=torch.sigmoid(torch.matmul(weights,self.x.to(self.device))),
-                                 target=self.b.to(self.device)
-                                 ))
-        elif self.scheme == 1: #方式1 根据每个层的参数比例进行嵌入
+        if self.scheme == 0:  # 方式0 水印嵌入在head层几个fc参数拼接的矩阵中
+            if layer_type == "rep":
+                p = self.model.rep_params()
+            elif layer_type == "head":
+                p = self.model.head_params()
+            elif layer_type == "bn":
+                p = self.model.bn_params()
+            weights = torch.tensor([], dtype=torch.float32).to(self.device)
+            for i in p:
+                weights = torch.cat((weights, i.view(-1)), 0)
+            # weights = weights.view(1, -1).to(self.device)
+            loss = self.alpha * torch.sum(
+                F.binary_cross_entropy(
+                    input=torch.sigmoid(torch.matmul(weights, self.x.to(self.device))),
+                    target=self.b.to(self.device),
+                )
+            )
+        elif self.scheme == 1:  # 方式1 根据每个层的参数比例进行嵌入
             pass
-        return loss 
+        return loss
+
     def reset(self):
         self.loss = 0

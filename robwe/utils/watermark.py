@@ -129,9 +129,12 @@ def get_watermark(n_parties, m):
 
 
 def get_keys(net, n_parties, m):
-    p, keys, b_l = get_watermark(n_parties, m)
-    keys, x = get_partition(net, b_l, n_parties, keys)
-    return p, keys, x, b_l
+    # p, keys, b_l = get_watermark(n_parties, m)
+    keys = [{} for _ in range(n_parties)]
+    for i in range(n_parties):
+        keys[i]["b"] = get_b(m, True)
+    keys, x = get_partition(net,m, n_parties, keys)
+    return None, keys, x, m
 
 
 def watermark_attack(key, frac, f=0):
